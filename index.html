@@ -69,26 +69,29 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-g
 </style>
 </head>
 <body>
+
 <button class="menu-toggle" onclick="toggleMenu()">☰</button>
 <div class="container">
   <div class="sidebar" id="sidebar">
     <div class="logo"><h1>🏸 ShuttleWinners</h1><p>by Rana</p></div>
-    <div class="menu-item active" onclick="goToSection('fixture')">📋 Fixture</div>
-    <div class="menu-item" onclick="goToSection('ranking')">🏆 Ranking</div>
+    <div class="menu-item active" onclick="goToSection(event,'fixture')">📋 Fixture</div>
+    <div class="menu-item" onclick="goToSection(event,'ranking')">🏆 Ranking</div>
     <div class="menu-item" onclick="openLogin()">🔐 Admin Login</div>
-    <div class="menu-item admin-only" onclick="goToSection('manage-teams')">👥 Manage Teams</div>
-    <div class="menu-item admin-only" onclick="goToSection('manage-matches')">⚔️ Manage Matches</div>
+    <div class="menu-item admin-only" onclick="goToSection(event,'manage-teams')">👥 Manage Teams</div>
+    <div class="menu-item admin-only" onclick="goToSection(event,'manage-matches')">⚔️ Manage Matches</div>
     <div class="menu-item admin-only" onclick="doLogout()">🚪 Logout</div>
   </div>
+
   <div class="main-content">
+    <!-- Fixture Section -->
     <div class="content-section active" id="fixture">
       <div class="card">
         <h2>Tournament Fixtures</h2>
         <div class="tabs-container">
-          <div class="tab active" onclick="switchDay(1)">Day 1</div>
-          <div class="tab" onclick="switchDay(2)">Day 2</div>
-          <div class="tab" onclick="switchDay(3)">Day 3</div>
-          <div class="tab" onclick="switchDay(4)">Final</div>
+          <div class="tab active" onclick="switchDay(event,1)">Day 1</div>
+          <div class="tab" onclick="switchDay(event,2)">Day 2</div>
+          <div class="tab" onclick="switchDay(event,3)">Day 3</div>
+          <div class="tab" onclick="switchDay(event,4)">Final</div>
         </div>
         <div class="tab-content active" id="day-1">
           <table class="fixture-table">
@@ -116,6 +119,8 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-g
         </div>
       </div>
     </div>
+
+    <!-- Ranking Section -->
     <div class="content-section" id="ranking">
       <div class="card">
         <h2>Team Rankings</h2>
@@ -125,6 +130,8 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-g
         </table>
       </div>
     </div>
+
+    <!-- Admin Sections -->
     <div class="content-section admin-only" id="manage-teams">
       <div class="card">
         <h2>Create Team</h2>
@@ -148,6 +155,7 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-g
         </table>
       </div>
     </div>
+
     <div class="content-section admin-only" id="manage-matches">
       <div class="card">
         <h2>Create Match</h2>
@@ -185,6 +193,8 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-g
     </div>
   </div>
 </div>
+
+<!-- Login Modal -->
 <div class="modal" id="loginModal">
   <div class="modal-content">
     <h2>Admin Login</h2>
@@ -202,8 +212,9 @@ body{font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif;background:linear-g
     </form>
   </div>
 </div>
+
 <script type="module">
-// ================== JS + Firebase ==================
+// ================== Firebase ==================
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-app.js";
 import { getDatabase, ref, set, push, onValue, update } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-database.js";
 import { getAuth, signInWithEmailAndPassword, signOut } from "https://www.gstatic.com/firebasejs/10.4.0/firebase-auth.js";
@@ -221,26 +232,49 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 const auth = getAuth(app);
-let isAdmin = false;
-let teamsMap = {}; // Store teams data for quick lookup
+let isAdmin=false;
+let teamsMap={};
 
-// Load teams map
-function loadTeamsMap() {
-  onValue(ref(db, 'teams'), snapshot => {
-    teamsMap = {};
-    snapshot.forEach(snap => {
-      teamsMap[snap.key] = snap.val();
+// ================== Utility Functions ==================
+function notify(msg,type='success'){
+  const n=document.createElement('div');n.className='notification '+type;n.textContent=msg;document.body.appendChild(n);setTimeout(()=>n.remove(),3000);
+}
+function toggleMenu(){document.getElementById('sidebar').classList.toggle('mobile-open');}
+function goToSection(event,id){
+  document.querySelectorAll('.content-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.menu-item').forEach(m=>m.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  if(event && event.target) event.target.classList.add('active');
+  if(window.innerWidth<=768)document.getElementById('sidebar').classList.remove('mobile-open');
+  if(id==='fixture') loadFixtures();
+  if(id==='ranking') loadRankings();
+  if(id==='manage-teams') loadTeams();
+  if(id==='manage-matches') loadMatches();
+}
+function switchDay(event,d){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
+  if(event && event.target) event.target.classList.add('active');
+  document.getElementById('day-'+d).classList.add('active');
+}
+function openLogin(){document.getElementById('loginModal').classList.add('active');}
+function closeLogin(){document.getElementById('loginModal').classList.remove('active');}
+
+// ================== Load Teams Map ==================
+function loadTeamsMap(){
+  onValue(ref(db,'teams'), snapshot=>{
+    teamsMap={};
+    snapshot.forEach(snap=>{
+      teamsMap[snap.key]=snap.val();
     });
   });
 }
-
-// Initialize teams map on load
 loadTeamsMap();
 
-// Admin Login
-window.loginAdmin = function(){
-  const email = document.getElementById('username').value;
-  const password = document.getElementById('password').value;
+// ================== Admin ==================
+window.loginAdmin=function(){
+  const email=document.getElementById('username').value;
+  const password=document.getElementById('password').value;
   signInWithEmailAndPassword(auth,email,password).then(user=>{
     if(user.user.email==='guharoytirthankar@gmail.com'){
       isAdmin=true;
@@ -254,46 +288,19 @@ window.loginAdmin = function(){
     }
   }).catch(e=>notify('Invalid credentials','error'));
 }
-
-// Logout
-window.doLogout = function(){
+window.doLogout=function(){
   signOut(auth).then(()=>{
     isAdmin=false;
     document.querySelectorAll('.admin-only').forEach(el=>el.style.display='none');
     notify('Logged out');
-    goToSection('fixture');
+    goToSection(null,'fixture');
   });
 }
 
-// Notifications
-window.notify=function(msg,type='success'){
-  const n=document.createElement('div');n.className='notification '+type;n.textContent=msg;document.body.appendChild(n);setTimeout(()=>n.remove(),3000);
+// ================== Fixtures ==================
+function loadFixtures(){
+  for(let d=1;d<=4;d++) loadDay(d);
 }
-
-// Menu
-window.toggleMenu=function(){document.getElementById('sidebar').classList.toggle('mobile-open');}
-window.goToSection=function(id){
-  document.querySelectorAll('.content-section').forEach(s=>s.classList.remove('active'));
-  document.querySelectorAll('.menu-item').forEach(m=>m.classList.remove('active'));
-  document.getElementById(id).classList.add('active');
-  if(event && event.target) event.target.classList.add('active');
-  if(window.innerWidth<=768)document.getElementById('sidebar').classList.remove('mobile-open');
-  if(id==='fixture')loadFixtures();
-  if(id==='ranking')loadRankings();
-  if(id==='manage-teams')loadTeams();
-  if(id==='manage-matches')loadMatches();
-}
-window.switchDay=function(d){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c=>c.classList.remove('active'));
-  if(event && event.target) event.target.classList.add('active');
-  document.getElementById('day-'+d).classList.add('active');
-}
-window.openLogin=function(){document.getElementById('loginModal').classList.add('active');}
-window.closeLogin=function(){document.getElementById('loginModal').classList.remove('active');}
-
-// Load Fixtures - FIXED: Now shows team names and icons, and handles scores properly
-window.loadFixtures=function(){for(let d=1;d<=4;d++)loadDay(d);}
 function loadDay(d){
   onValue(ref(db,'matches'),snapshot=>{
     const tbody=document.getElementById('day'+d+'Body');
@@ -301,16 +308,10 @@ function loadDay(d){
     snapshot.forEach(snap=>{
       const m=snap.val();
       if(m.day===d){
-        // Get team names and icons from teamsMap
-        const team1 = teamsMap[m.t1] || {name: m.t1, icon: '🏸'};
-        const team2 = teamsMap[m.t2] || {name: m.t2, icon: '🏸'};
-       
-        // Fix score display - check for both null and undefined, show "- -" if not set
-        let score = '- -';
-        if(m.s1 !== null && m.s1 !== undefined && m.s2 !== null && m.s2 !== undefined){
-          score = `${m.s1} - ${m.s2}`;
-        }
-       
+        const team1 = teamsMap[m.t1] || {name:m.t1,icon:'🏸'};
+        const team2 = teamsMap[m.t2] || {name:m.t2,icon:'🏸'};
+        let score='- -';
+        if(m.s1!==null && m.s1!==undefined && m.s2!==null && m.s2!==undefined) score=`${m.s1} - ${m.s2}`;
         html+=`<tr>
           <td>${m.type==='final'?'FINAL':'Match '+m.num}</td>
           <td>${team1.icon} ${team1.name}</td>
@@ -325,25 +326,21 @@ function loadDay(d){
   });
 }
 
-// Rankings - Real-time updates when scores change
-let rankingListeners = { teams: null, matches: null };
-let rankingTeamsData = {};
-
-window.loadRankings=function(){
+// ================== Rankings ==================
+let rankingTeamsData={};
+let rankingListeners={teams:null,matches:null};
+function loadRankings(){
   const rBody=document.getElementById('rankingBody');
- 
-  // Function to render the ranking table
+
   function renderRankings(){
     const rankArray=Object.values(rankingTeamsData).sort((a,b)=>{
-      if(b.pts !== a.pts) return b.pts - a.pts;
-      if(b.w !== a.w) return b.w - a.w;
+      if(b.pts!==a.pts) return b.pts - a.pts;
+      if(b.w!==a.w) return b.w - a.w;
       return a.name.localeCompare(b.name);
     });
-   
     let html='';
-    if(rankArray.length === 0){
-      html='<tr><td colspan="6" class="no-matches">No teams registered yet</td></tr>';
-    } else {
+    if(rankArray.length===0) html='<tr><td colspan="6" class="no-matches">No teams</td></tr>';
+    else{
       rankArray.forEach((t,i)=>{
         const c=i===0?'rank-1':i===1?'rank-2':i===2?'rank-3':'rank-other';
         html+=`<tr><td><span class="rank-badge ${c}">${i+1}</span></td><td>${t.icon} ${t.name}</td><td>${t.p}</td><td>${t.w}</td><td>${t.l}</td><td>${t.pts}</td></tr>`;
@@ -351,128 +348,96 @@ window.loadRankings=function(){
     }
     rBody.innerHTML=html;
   }
- 
-  // Function to process matches and update stats
+
   function processMatches(mSnap){
-    // Reset all stats before recalculating
-    Object.keys(rankingTeamsData).forEach(key=>{
-      rankingTeamsData[key].p=0;
-      rankingTeamsData[key].w=0;
-      rankingTeamsData[key].l=0;
-      rankingTeamsData[key].pts=0;
-    });
-   
-    // Process each match
+    Object.keys(rankingTeamsData).forEach(k=>{rankingTeamsData[k].p=0;rankingTeamsData[k].w=0;rankingTeamsData[k].l=0;rankingTeamsData[k].pts=0;});
     if(mSnap && mSnap.exists()){
       mSnap.forEach(s=>{
         const m=s.val();
-        if(m && m.type==='league' && m.s1 !== null && m.s1 !== undefined && m.s2 !== null && m.s2 !== undefined){
-          // Only process if both teams exist in teamsData
+        if(m && m.type==='league' && m.s1!==null && m.s2!==null){
           if(rankingTeamsData[m.t1] && rankingTeamsData[m.t2]){
-            rankingTeamsData[m.t1].p++;
-            rankingTeamsData[m.t2].p++;
-           
-            // Winner gets 2 points, loser gets 0 points
-            if(m.s1 > m.s2){
-              rankingTeamsData[m.t1].w++;
-              rankingTeamsData[m.t1].pts += 2; // Winner gets 2 points
-              rankingTeamsData[m.t2].l++;
-            } else if(m.s2 > m.s1){
-              rankingTeamsData[m.t2].w++;
-              rankingTeamsData[m.t2].pts += 2; // Winner gets 2 points
-              rankingTeamsData[m.t1].l++;
-            }
+            rankingTeamsData[m.t1].p++; rankingTeamsData[m.t2].p++;
+            if(m.s1>m.s2){rankingTeamsData[m.t1].w++;rankingTeamsData[m.t1].pts+=2;rankingTeamsData[m.t2].l++;}
+            else if(m.s2>m.s1){rankingTeamsData[m.t2].w++;rankingTeamsData[m.t2].pts+=2;rankingTeamsData[m.t1].l++;}
           }
         }
       });
     }
-   
-    // Update ranking with match results
     renderRankings();
   }
- 
-  // Clean up old listeners
+
   if(rankingListeners.teams) rankingListeners.teams();
   if(rankingListeners.matches) rankingListeners.matches();
- 
-  // Load teams first
+
   rankingListeners.teams = onValue(ref(db,'teams'),tSnap=>{
     rankingTeamsData={};
-    if(tSnap.exists()){
-      tSnap.forEach(snap=>{
-        rankingTeamsData[snap.key]={...snap.val(),p:0,w:0,l:0,pts:0};
-      });
-    }
-   
-    // Set up real-time listener for matches (updates automatically when scores change)
-    if(rankingListeners.matches) rankingListeners.matches(); // Remove old listener
-    rankingListeners.matches = onValue(ref(db,'matches'),mSnap=>{
-      // Recalculate stats whenever matches change (real-time updates)
-      processMatches(mSnap);
-    });
-  }, error => {
-    // If teams don't exist, show message
-    rBody.innerHTML='<tr><td colspan="6" class="no-matches">No teams registered yet</td></tr>';
+    if(tSnap.exists()){tSnap.forEach(s=>{rankingTeamsData[s.key]={...s.val(),p:0,w:0,l:0,pts:0};});}
+    if(rankingListeners.matches) rankingListeners.matches();
+    rankingListeners.matches = onValue(ref(db,'matches'),mSnap=>{processMatches(mSnap);});
   });
 }
 
-// Teams
-window.loadTeams=function(){
+// ================== Teams & Matches ==================
+function loadTeams(){
   const teamsBody=document.getElementById('teamsBody');
   onValue(ref(db,'teams'),snapshot=>{
     teamsBody.innerHTML='';
-    snapshot.forEach(childSnap=>{
-      const t=childSnap.val();
-      teamsBody.innerHTML+=`<tr><td>${t.icon}</td><td>${t.name}</td><td><button class="delete-btn" onclick="deleteTeam('${childSnap.key}')">Delete</button></td></tr>`;
+    snapshot.forEach(child=>{
+      const t=child.val();
+      teamsBody.innerHTML+=`<tr><td>${t.icon}</td><td>${t.name}</td><td><button class="delete-btn" onclick="deleteTeam('${child.key}')">Delete</button></td></tr>`;
     });
-    // Reload teams map after teams are loaded
     loadTeamsMap();
   });
 }
-window.deleteTeam=function(key){
-  if(!isAdmin)return notify('Not authorized','error');
-  set(ref(db,'teams/'+key),null).then(()=>{
-    loadTeamsMap();
-    notify('Team deleted');
-  });
-}
+window.deleteTeam=function(key){if(!isAdmin)return notify('Not authorized','error');set(ref(db,'teams/'+key),null).then(()=>{loadTeamsMap();notify('Team deleted');});}
 document.getElementById('createTeamForm').addEventListener('submit',function(e){
   e.preventDefault();
   if(!isAdmin)return notify('Not authorized','error');
   const name=document.getElementById('teamName').value;
   const icon=document.getElementById('teamIcon').value||'🏸';
-  push(ref(db,'teams'),{name,icon}).then(()=>{
-    loadTeamsMap();
-    notify('Team created');
-    this.reset();
-  });
+  push(ref(db,'teams'),{name,icon}).then(()=>{loadTeamsMap();notify('Team created');this.reset();});
 });
 
-// Matches
-window.loadMatches=function(){
-  const t1Select=document.getElementById('team1Select');const t2Select=document.getElementById('team2Select');t1Select.innerHTML=t2Select.innerHTML='';
+function loadMatches(){
+  const t1Select=document.getElementById('team1Select');
+  const t2Select=document.getElementById('team2Select');
+  t1Select.innerHTML=t2Select.innerHTML='';
   onValue(ref(db,'teams'),snapshot=>{
     t1Select.innerHTML=t2Select.innerHTML='<option value="">Select Team</option>';
-    snapshot.forEach(snap=>{const t=snap.val();t1Select.innerHTML+=`<option value="${snap.key}">${t.icon} ${t.name}</option>`;t2Select.innerHTML+=`<option value="${snap.key}">${t.icon} ${t.name}</option>`;});
+    snapshot.forEach(s=>{const t=s.val();t1Select.innerHTML+=`<option value="${s.key}">${t.icon} ${t.name}</option>`;t2Select.innerHTML+=`<option value="${s.key}">${t.icon} ${t.name}</option>`;});
   });
-  const matchScoresDiv=document.getElementById('matchScores');matchScoresDiv.innerHTML='';
+
+  const matchScoresDiv=document.getElementById('matchScores');
   onValue(ref(db,'matches'),snapshot=>{
     matchScoresDiv.innerHTML='';
     snapshot.forEach(snap=>{
       const m=snap.val();
       if(m.type==='league'){
-        const team1 = teamsMap[m.t1] || {name: m.t1, icon: '🏸'};
-        const team2 = teamsMap[m.t2] || {name: m.t2, icon: '🏸'};
-        const s1=m.s1!==null && m.s1!==undefined?m.s1:'';const s2=m.s2!==null && m.s2!==undefined?m.s2:'';
+        const team1=teamsMap[m.t1]||{name:m.t1,icon:'🏸'};
+        const team2=teamsMap[m.t2]||{name:m.t2,icon:'🏸'};
+        const s1=m.s1!==null&&m.s1!==undefined?m.s1:'';const s2=m.s2!==null&&m.s2!==undefined?m.s2:'';
         matchScoresDiv.innerHTML+=`<div style="margin-bottom:10px;"><strong>Match ${m.num}:</strong> ${team1.icon} ${team1.name} <input class="score-input" id="s1_${snap.key}" value="${s1}"> - <input class="score-input" id="s2_${snap.key}" value="${s2}"> ${team2.icon} ${team2.name} <button class="btn btn-success" onclick="updateScore('${snap.key}')">Update</button></div>`;
       }
     });
   });
 }
 window.updateScore=function(key){if(!isAdmin)return notify('Not authorized','error');const s1=parseInt(document.getElementById('s1_'+key).value)||0;const s2=parseInt(document.getElementById('s2_'+key).value)||0;update(ref(db,'matches/'+key),{s1,s2});notify('Score updated');}
-document.getElementById('createMatchForm').addEventListener('submit',function(e){e.preventDefault();if(!isAdmin)return notify('Not authorized','error');const day=parseInt(document.getElementById('matchDay').value);const num=parseInt(document.getElementById('matchNumber').value);const t1=document.getElementById('team1Select').value;const t2=document.getElementById('team2Select').value;const type=document.getElementById('matchType').value;if(!t1||!t2)return notify('Select both teams','error');push(ref(db,'matches'),{day,num,t1,t2,type,s1:null,s2:null});notify('Match created');this.reset();});
+document.getElementById('createMatchForm').addEventListener('submit',function(e){
+  e.preventDefault();
+  if(!isAdmin)return notify('Not authorized','error');
+  const day=parseInt(document.getElementById('matchDay').value);
+  const num=parseInt(document.getElementById('matchNumber').value);
+  const t1=document.getElementById('team1Select').value;
+  const t2=document.getElementById('team2Select').value;
+  const type=document.getElementById('matchType').value;
+  if(!t1||!t2)return notify('Select both teams','error');
+  push(ref(db,'matches'),{day,num,t1,t2,type,s1:null,s2:null});
+  notify('Match created');this.reset();
+});
 
-window.addEventListener('load',()=>{loadTeamsMap();goToSection('fixture');});
+// ================== Load on start ==================
+window.addEventListener('load',()=>{loadTeamsMap();goToSection(null,'fixture');});
+
 </script>
 </body>
 </html>
